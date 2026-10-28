@@ -38,6 +38,9 @@
   td.link { white-space: nowrap; width: 80px; }
   td.link a { color: var(--accent); text-decoration: none; font-weight: 600; }
   td.link a:hover { text-decoration: underline; }
+  td.read { width: 56px; text-align: center; }
+  td.read input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
+  tr.done td:not(.read) { opacity: .45; }
   .none { color: var(--muted); }
   .empty { padding: 24px; text-align: center; color: var(--muted); }
   #viewer { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: none;
@@ -48,7 +51,7 @@
 <body>
 <div class="wrap">
   <h1>한전 뉴스·이슈 정리</h1>
-  <p class="sub">한국전력 스터디 · 최신순</p>
+  <p class="sub">한국전력 스터디 · 최신순 · 읽음 체크는 이 기기에만 저장됩니다</p>
 
   <section style="--c: var(--issue)">
     <h2>이슈 <span class="count" id="issue-count"></span></h2>
@@ -68,14 +71,19 @@
     return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  const READ_KEY = "kepco-read";
+  let read = [];
+  try { read = JSON.parse(localStorage.getItem(READ_KEY)) || []; } catch (e) {}
+
   function render(type, boxId, countId) {
     const rows = DATA.filter(d => d.type === type).sort((a, b) => b.date.localeCompare(a.date));
     document.getElementById(countId).textContent = rows.length + "건";
     const box = document.getElementById(boxId);
     if (!rows.length) { box.innerHTML = '<div class="empty">아직 등록된 항목이 없습니다.</div>'; return; }
     box.innerHTML = `<table>
-      <thead><tr><th>날짜</th><th>사진</th><th>제목</th><th>한줄평</th><th>링크</th></tr></thead>
-      <tbody>${rows.map(d => `<tr>
+      <thead><tr><th>읽음</th><th>날짜</th><th>사진</th><th>제목</th><th>한줄평</th><th>링크</th></tr></thead>
+      <tbody>${rows.map(d => `<tr${read.includes(d.url) ? ' class="done"' : ""}>
+        <td class="read"><input type="checkbox" data-url="${esc(d.url)}"${read.includes(d.url) ? " checked" : ""}></td>
         <td class="date">${esc(d.date)}</td>
         <td class="img">${d.image ? `<img src="${esc(d.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith('-')">` : '<span class="none">-</span>'}</td>
         <td class="title">${esc(d.title)}</td>
@@ -87,6 +95,15 @@
 
   render("이슈", "issue", "issue-count");
   render("뉴스", "news", "news-count");
+
+  document.addEventListener("change", e => {
+    if (!e.target.matches("td.read input")) return;
+    const url = e.target.dataset.url;
+    read = read.filter(u => u !== url);
+    if (e.target.checked) read.push(url);
+    e.target.closest("tr").classList.toggle("done", e.target.checked);
+    try { localStorage.setItem(READ_KEY, JSON.stringify(read)); } catch (e) {}
+  });
 
   const viewer = document.getElementById("viewer");
   document.addEventListener("click", e => {
